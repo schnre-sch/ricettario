@@ -270,7 +270,7 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const lines = s => s.split("\n").map(x => x.trim()).filter(Boolean);
 
-let db = load();
+let db = addExamples(load());
 let state = { view: "list", cat: "Tutte", q: "", rid: null, mid: null, persons: null, ver: "orig", proc: "std", focus: null };
 
 function load() {
@@ -280,7 +280,16 @@ function load() {
     const old = localStorage.getItem(OLD_KEY); // versione precedente: la converto, l'originale resta intatto
     if (old) return { recipes: JSON.parse(old).map(migrate), menus: [], shop: [], settings: {} };
   } catch (e) {}
-  return { recipes: [example()], menus: [], shop: [], settings: {} };
+  return { recipes: [], menus: [], shop: [], settings: {} };
+}
+// Aggiunge le ricette di esempio una volta sola: se poi le elimini, non tornano
+function addExamples(d) {
+  const EXAMPLES_VERSION = 2;
+  if ((d.settings.examples || 0) >= EXAMPLES_VERSION) return d;
+  const titles = new Set(d.recipes.map(r => norm(r.title)));
+  for (const r of examples()) if (!d.recipes.some(x => x.id === r.id) && !titles.has(norm(r.title))) d.recipes.push(r);
+  d.settings.examples = EXAMPLES_VERSION;
+  return d;
 }
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(db)); }
@@ -294,9 +303,22 @@ function migrate(r) {
     tools: r.tools || [], steps: r.steps || [], bimby: r.bimby || []
   };
 }
-function example() {
-  return {
-    id: uid(), title: "Spaghetti aglio, olio e peperoncino", cat: "Primi", time: "15 minuti", serv: 2, fav: false,
+function examples() {
+  const BIMBY_NOTE = " I passaggi Bimby sono indicativi: controllali con il tuo modello.";
+  return [{
+    id: "ex-antipasti", title: "Bruschette al pomodoro", cat: "Antipasti", time: "15 minuti", serv: 4, fav: false,
+    ing: [{ qty: 8, unit: "fetta", name: "Pane casereccio" }, { qty: 4, unit: "pz", name: "Pomodori maturi" }, { qty: 1, unit: "spicchio", name: "Aglio" },
+      { qty: 3, unit: "cucchiaio", name: "Olio extravergine" }, { qty: null, unit: "qb", name: "Basilico" }, { qty: null, unit: "qb", name: "Origano" }, { qty: null, unit: "qb", name: "Sale" }],
+    tools: ["Tagliere", "Coltello", "Ciotola", "Griglia o forno"],
+    steps: ["Lava i pomodori, togli i semi e tagliali a cubetti", "Mettili in una ciotola con olio, sale, origano e basilico spezzettato", "Lascia insaporire per almeno 10 minuti", "Tosta le fette di pane sulla griglia o in forno finché sono dorate",
+      "Strofina l'aglio sul pane ancora caldo", "Distribuisci i pomodori sul pane e servi subito"],
+    bimby: [{ text: "Metti nel boccale aglio e basilico", time: "3 sec", temp: "", speed: "5" },
+      { text: "Aggiungi i pomodori tagliati in quattro e trita grossolanamente", time: "2 sec", temp: "", speed: "4" },
+      { text: "Aggiungi olio, sale e origano e mescola", time: "10 sec", temp: "", speed: "antiorario, 2" },
+      { text: "Tosta il pane a parte e completa con il condimento" , time: "", temp: "", speed: "" }],
+    notes: "Ricetta di esempio. Meglio usare pane del giorno prima: resta croccante." + BIMBY_NOTE
+  }, {
+    id: "ex-primi", title: "Spaghetti aglio, olio e peperoncino", cat: "Primi", time: "15 minuti", serv: 2, fav: false,
     ing: [{ qty: 200, unit: "g", name: "Spaghetti" }, { qty: 2, unit: "spicchio", name: "Aglio" }, { qty: 3, unit: "cucchiaio", name: "Olio extravergine" },
       { qty: 1, unit: "pz", name: "Peperoncino" }, { qty: null, unit: "qb", name: "Prezzemolo" }, { qty: null, unit: "qb", name: "Sale" }],
     tools: ["Pentola", "Padella", "Scolapasta"],
@@ -304,8 +326,38 @@ function example() {
     bimby: [{ text: "Metti aglio, olio e peperoncino nel boccale", time: "3 min", temp: "120°", speed: "1" },
       { text: "Aggiungi 1 litro d'acqua e il sale", time: "10 min", temp: "100°", speed: "1" },
       { text: "Aggiungi gli spaghetti e cuoci", time: "tempo della confezione", temp: "100°", speed: "antiorario, soft" }],
-    notes: "Ricetta di esempio: puoi modificarla o eliminarla."
-  };
+    notes: "Ricetta di esempio: puoi modificarla o eliminarla." + BIMBY_NOTE
+  }, {
+    id: "ex-secondi", title: "Scaloppine al limone", cat: "Secondi", time: "20 minuti", serv: 4, fav: false,
+    ing: [{ qty: 600, unit: "g", name: "Fettine di vitello" }, { qty: 20, unit: "g", name: "Farina" }, { qty: 1, unit: "pz", name: "Limone (succo)" },
+      { qty: 30, unit: "g", name: "Burro" }, { qty: 2, unit: "cucchiaio", name: "Olio extravergine" }, { qty: null, unit: "qb", name: "Prezzemolo" },
+      { qty: null, unit: "qb", name: "Sale" }, { qty: null, unit: "qb", name: "Pepe" }],
+    tools: ["Batticarne", "Padella larga", "Piatto per infarinare"],
+    steps: ["Batti leggermente le fettine per renderle sottili e uguali", "Passale nella farina e scuoti quella in eccesso", "Scalda olio e burro in padella",
+      "Cuoci le fettine 1-2 minuti per lato finché sono dorate, poi sala e pepa", "Abbassa il fuoco e aggiungi il succo di limone con un po' d'acqua",
+      "Lascia addensare il sughetto per un minuto girando le fettine", "Spegni, aggiungi il prezzemolo tritato e servi"],
+    bimby: [{ text: "Trita il prezzemolo e mettilo da parte", time: "3 sec", temp: "", speed: "7" },
+      { text: "Metti olio e burro nel boccale", time: "2 min", temp: "100°", speed: "1" },
+      { text: "Aggiungi le fettine infarinate", time: "8 min", temp: "100°", speed: "antiorario, soft" },
+      { text: "Aggiungi il succo di limone, sale e pepe", time: "2 min", temp: "90°", speed: "antiorario, soft" },
+      { text: "Servi con il prezzemolo tritato", time: "", temp: "", speed: "" }],
+    notes: "Ricetta di esempio. Non far bollire a lungo il limone: diventa amaro. Va bene anche il petto di pollo." + BIMBY_NOTE
+  }, {
+    id: "ex-dolci", title: "Tiramisù", cat: "Dolci", time: "30 minuti + 3 ore di riposo", serv: 6, fav: false,
+    ing: [{ qty: 500, unit: "g", name: "Mascarpone" }, { qty: 4, unit: "pz", name: "Uova freschissime" }, { qty: 100, unit: "g", name: "Zucchero" },
+      { qty: 300, unit: "g", name: "Savoiardi" }, { qty: 300, unit: "ml", name: "Caffè" }, { qty: null, unit: "qb", name: "Cacao amaro" }],
+    tools: ["Fruste elettriche", "Due ciotole", "Pirofila", "Setaccino"],
+    steps: ["Prepara il caffè e lascialo raffreddare", "Separa i tuorli dagli albumi", "Monta i tuorli con lo zucchero finché sono chiari e spumosi",
+      "Aggiungi il mascarpone e mescola fino a una crema liscia", "Monta gli albumi a neve ben ferma e uniscili alla crema mescolando dal basso verso l'alto",
+      "Bagna velocemente i savoiardi nel caffè e fai uno strato nella pirofila", "Copri con metà crema, poi fai un altro strato di savoiardi e crema",
+      "Lascia in frigo almeno 3 ore e spolvera di cacao prima di servire"],
+    bimby: [{ text: "Inserisci la farfalla. Metti gli albumi con un pizzico di sale e montali", time: "3 min", temp: "37°", speed: "4" },
+      { text: "Togli gli albumi e mettili in frigo. Metti tuorli e zucchero, sempre con la farfalla", time: "6 min", temp: "37°", speed: "4" },
+      { text: "Aggiungi il mascarpone", time: "20 sec", temp: "", speed: "4" },
+      { text: "Togli la farfalla e unisci gli albumi a mano con la spatola", time: "", temp: "", speed: "" },
+      { text: "Componi gli strati come nel procedimento classico", time: "", temp: "", speed: "" }],
+    notes: "Ricetta di esempio. Con le uova crude usa uova freschissime; il Bimby a 37° le scalda un po' ma non le pastorizza del tutto." + BIMBY_NOTE
+  }];
 }
 
 // ---------- Ingredienti, porzioni e calorie ----------
