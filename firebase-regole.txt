@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function accesso() {
+      return /databases/$(database)/documents/config/accesso;
+    }
+    function membro() {
+      return request.auth != null && exists(accesso()) &&
+        (get(accesso()).data.proprietario == request.auth.uid ||
+         (request.auth.token.email_verified == true &&
+          request.auth.token.email.lower() in get(accesso()).data.email));
+    }
+    match /config/accesso {
+      allow read: if request.auth != null && (!exists(accesso()) || membro());
+      allow create: if request.auth != null && request.resource.data.proprietario == request.auth.uid;
+      allow update: if request.auth != null && resource.data.proprietario == request.auth.uid
+                    && request.resource.data.proprietario == resource.data.proprietario;
+    }
+    match /ricette/{id} { allow read, write: if membro(); }
+    match /menu/{id} { allow read, write: if membro(); }
+    match /condivisi/{id} { allow read, write: if membro(); }
+  }
+}

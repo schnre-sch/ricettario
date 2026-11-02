@@ -135,6 +135,9 @@
   .progress div { height: 100%; background: var(--wood); transition: width .4s; }
   .done-banner { background: var(--wood-soft); border-color: var(--wood-light); }
 
+  .members { list-style: none; margin: 8px 0 10px; padding: 0; }
+  .members li { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .92rem; }
+  .members .x { padding: 0; width: 32px; height: 32px; border: 0; background: transparent; color: var(--muted); }
   .mlist label { display: flex; gap: 10px; align-items: center; font-weight: 400; margin: 0; padding: 10px 2px; border-bottom: 1px solid var(--border); }
   .mlist input { width: 20px; height: 20px; accent-color: var(--wood); }
   .group { margin-top: 14px; }
@@ -291,7 +294,8 @@ function addExamples(d) {
   d.settings.examples = EXAMPLES_VERSION;
   return d;
 }
-function save() {
+function save() { saveLocal(); push(); }
+function saveLocal() {
   try { localStorage.setItem(KEY, JSON.stringify(db)); }
   catch (e) { toast("Attenzione: non riesco a salvare su questo dispositivo"); }
 }
@@ -470,7 +474,7 @@ function viewList() {
   if (!chips.includes(state.cat)) state.cat = "Tutte";
   return `
     <h1>Ricettario</h1>
-    <p class="sub">${db.recipes.length} ricette</p>
+    <p class="sub">${db.recipes.length} ricette${cloud.status === "member" ? " · in comune con la famiglia" : ""}</p>
     <div class="search">${ic("search")}<input type="search" id="search" data-in="search" placeholder="Cerca una ricetta o un ingrediente" value="${esc(state.q)}"></div>
     <div class="chips">${chips.map(c => `<button class="chip ${c === state.cat ? "on" : ""}" data-act="cat" data-c="${esc(c)}">${esc(c)}</button>`).join("")}</div>
     <div id="results"></div>
@@ -700,11 +704,12 @@ function viewShop() {
 // ---------- Impostazioni ----------
 function viewSettings() {
   return `<h1>Altro</h1><p class="sub">Impostazioni e copie di sicurezza.</p>
+    <div class="panel"><h3>Famiglia</h3>${familyPanel()}</div>
     <div class="panel"><h3>Numero WhatsApp per la spesa</h3>
       <p class="muted" style="margin-top:0">La lista della spesa verrà preparata per questo numero. Se lo lasci vuoto, WhatsApp ti farà scegliere il contatto.</p>
       <input id="phone" data-in="phone" type="tel" placeholder="Es. +39 333 1234567" value="${esc(db.settings.phone)}"></div>
     <div class="panel"><h3>Copia di sicurezza</h3>
-      <p class="muted" style="margin-top:0">Le ricette sono salvate su questo dispositivo. Scarica ogni tanto una copia: serve anche per spostarle su un altro telefono o computer.</p>
+      <p class="muted" style="margin-top:0">${cloud.status === "member" ? "Le ricette sono salvate online per tutta la famiglia. Puoi comunque scaricare una copia da tenere." : "Le ricette sono salvate su questo dispositivo. Scarica ogni tanto una copia: serve anche per spostarle su un altro telefono o computer."}</p>
       <div class="row"><button data-act="export">Scarica copia</button><button data-act="import">Carica copia</button></div>
       <input type="file" id="fileImport" accept=".json,application/json" class="hidden"></div>
     <p class="muted" style="text-align:center;font-size:.82rem;margin-top:20px">Le calorie sono stime medie, da usare come indicazione.</p>`;
@@ -728,6 +733,145 @@ async function importData(f) {
     db.recipes.push(...newR); db.menus.push(...newM);
     save(); render(false); toast(`Aggiunte ${newR.length} ricette e ${newM.length} menu`);
   } catch { toast("Questo file non sembra una copia del ricettario"); }
+}
+
+// ---------- Condivisione con la famiglia (Firebase) ----------
+// Online: ricette/{id}, menu/{id}, condivisi/spesa, config/accesso (chi può entrare)
+const FB_URL = "https://www.gstatic.com/firebasejs/10.12.2/firebase-";
+const BASE_KEY = "ricettario.v2.base";
+const cloud = { status: "off", user: null, access: null, A: null, F: null, auth: null, fs: null, unsub: [] };
+// Ultima versione vista online: serve a capire cosa è cambiato su questo dispositivo
+let remote = (() => { try { return JSON.parse(localStorage.getItem(BASE_KEY)); } catch { return null; } })();
+const saveBase = () => { try { localStorage.setItem(BASE_KEY, JSON.stringify(remote)); } catch {} };
+// Testo con le chiavi in ordine fisso, per confrontare due versioni
+const canon = v => JSON.stringify(v, (k, x) => x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort()) : x);
+const snapOf = list => Object.fromEntries(list.map(x => [x.id, canon(x)]));
+
+async function readConfig() {
+  try {
+    const t = await (await fetch("firebase-config.txt", { cache: "no-store" })).text();
+    const c = {};
+    for (const k of ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId"]) {
+      const m = t.match(new RegExp(k + "\\s*:\\s*[\"']([^\"']+)[\"']"));
+      if (m) c[k] = m[1];
+    }
+    if (!(c.apiKey && c.projectId && c.appId)) return null;
+    c.authDomain ||= c.projectId + ".firebaseapp.com";
+    return c;
+  } catch { return null; }
+}
+async function cloudInit(cfg) {
+  cfg = cfg || await readConfig();
+  if (!cfg) return;
+  setStatus("loading");
+  try {
+    const [app, A, F] = await Promise.all(["app", "auth", "firestore"].map(n => import(FB_URL + n + ".js")));
+    const a = app.initializeApp(cfg);
+    Object.assign(cloud, { A, F, auth: A.getAuth(a), fs: F.initializeFirestore(a, { ignoreUndefinedProperties: true }) });
+    A.onAuthStateChanged(cloud.auth, u => { cloud.user = u; stopSync(); u ? connect() : setStatus("signedOut"); });
+  } catch (e) { setStatus("offline"); }
+}
+function setStatus(s) { cloud.status = s; refresh(); }
+// Ridisegna senza disturbare chi sta scrivendo
+function refresh() {
+  const a = document.activeElement;
+  if (["edit", "menuEdit"].includes(state.view) || (a && a.closest("#view") && /INPUT|TEXTAREA|SELECT/.test(a.tagName))) return;
+  render(false);
+}
+async function connect() {
+  const F = cloud.F;
+  setStatus("loading");
+  try {
+    const acc = await F.getDoc(F.doc(cloud.fs, "config", "accesso"));
+    if (!acc.exists()) return setStatus("noFamily");
+    cloud.access = acc.data();
+    await startSync();
+  } catch (e) { setStatus(e.code === "permission-denied" ? "denied" : "offline"); }
+}
+async function startSync() {
+  const F = cloud.F, fs = cloud.fs, uidNow = cloud.user.uid;
+  const [rs, ms, sp] = await Promise.all([F.getDocs(F.collection(fs, "ricette")), F.getDocs(F.collection(fs, "menu")), F.getDoc(F.doc(fs, "condivisi", "spesa"))]);
+  const server = { recipes: rs.docs.map(d => d.data()), menus: ms.docs.map(d => d.data()), shop: sp.exists() ? sp.data().items || [] : [] };
+  const first = db.settings.cloudUser !== uidNow || !remote;
+  db.recipes = mergeList(server.recipes, db.recipes, first ? null : remote.recipes, true);
+  db.menus = mergeList(server.menus, db.menus, first ? null : remote.menus, false);
+  if (first) db.shop = [...server.shop, ...db.shop.filter(x => !server.shop.some(s => s.id === x.id))];
+  else if (canon(db.shop) === remote.shop) db.shop = server.shop; // altrimenti vince la lista modificata qui
+  remote = { recipes: snapOf(server.recipes), menus: snapOf(server.menus), shop: canon(server.shop) };
+  db.settings.cloudUser = uidNow;
+  cloud.status = "member";
+  save(); // manda online quello che è cambiato su questo dispositivo
+  listen(); refresh();
+}
+// Unisce le ricette online con quelle di questo dispositivo
+function mergeList(server, local, base, byTitle) {
+  const out = new Map(server.map(x => [x.id, x]));
+  if (!base) { // prima volta su questo dispositivo: aggiungo solo ciò che online manca
+    const titles = new Set(byTitle ? server.map(x => norm(x.title)) : []);
+    for (const x of local) if (!out.has(x.id) && !titles.has(norm(x.title)) && !(x.id.startsWith("ex-") && server.length)) out.set(x.id, x);
+  } else {
+    for (const x of local) if (canon(x) !== base[x.id]) out.set(x.id, x); // modificate qui
+    for (const id in base) if (!local.some(x => x.id === id)) out.delete(id); // eliminate qui
+  }
+  return [...out.values()];
+}
+function listen() {
+  const F = cloud.F, fs = cloud.fs;
+  const fail = e => { stopSync(); setStatus(e.code === "permission-denied" ? "denied" : "offline"); };
+  const apply = (key, data) => {
+    db[key] = data; remote[key] = key === "shop" ? canon(data) : snapOf(data);
+    saveBase(); saveLocal(); refresh();
+  };
+  cloud.unsub = [
+    F.onSnapshot(F.collection(fs, "ricette"), q => apply("recipes", q.docs.map(d => d.data())), fail),
+    F.onSnapshot(F.collection(fs, "menu"), q => apply("menus", q.docs.map(d => d.data())), fail),
+    F.onSnapshot(F.doc(fs, "condivisi", "spesa"), d => apply("shop", d.exists() ? d.data().items || [] : []), fail),
+    F.onSnapshot(F.doc(fs, "config", "accesso"), d => { cloud.access = d.data() || {}; if (state.view === "settings") refresh(); }, fail)
+  ];
+}
+function stopSync() { cloud.unsub.forEach(f => f()); cloud.unsub = []; }
+// Manda online solo le cose cambiate
+function push() {
+  if (cloud.status !== "member") return;
+  const F = cloud.F, fs = cloud.fs, b = F.writeBatch(fs);
+  let n = 0;
+  for (const [key, col] of [["recipes", "ricette"], ["menus", "menu"]]) {
+    const map = remote[key];
+    for (const x of db[key]) { const s = canon(x); if (map[x.id] !== s) { b.set(F.doc(fs, col, x.id), x); map[x.id] = s; n++; } }
+    for (const id of Object.keys(map)) if (!db[key].some(x => x.id === id)) { b.delete(F.doc(fs, col, id)); delete map[id]; n++; }
+  }
+  const s = canon(db.shop);
+  if (remote.shop !== s) { b.set(F.doc(fs, "condivisi", "spesa"), { items: db.shop }); remote.shop = s; n++; }
+  if (!n) return;
+  saveBase();
+  b.commit().catch(() => toast("Modifica non salvata online: controlla la connessione"));
+}
+function setMembers(list) {
+  const F = cloud.F;
+  return F.updateDoc(F.doc(cloud.fs, "config", "accesso"), { email: list }).catch(() => toast("Non riesco a salvare: riprova"));
+}
+function familyPanel() {
+  const u = cloud.user, a = cloud.access || {}, me = u ? `<b>${esc(u.email)}</b>` : "";
+  const out = `<button class="small ghost" data-act="logout">Esci</button>`;
+  const p = t => `<p class="muted" style="margin-top:0">${t}</p>`;
+  switch (cloud.status) {
+    case "off": return p("La condivisione non è ancora attiva.");
+    case "loading": return p("Collegamento in corso…");
+    case "offline": return p("Non riesco a collegarmi. Le modifiche restano su questo dispositivo e si uniscono a quelle della famiglia quando torni online.");
+    case "signedOut": return p("Entra con il tuo account Google per avere ricette, menu e spesa in comune con tutta la famiglia.") +
+      `<button class="primary" data-act="login">Entra con Google</button>`;
+    case "noFamily": return p(`Sei entrato come ${me}. Il ricettario di famiglia non esiste ancora: crealo e potrai invitare gli altri. Le ricette di questo dispositivo verranno copiate dentro.`) +
+      `<div class="row"><button class="primary" data-act="createFamily">Crea il ricettario di famiglia</button>${out}</div>`;
+    case "denied": return p(`L'account ${me} non fa ancora parte della famiglia. Chiedi a chi ha creato il ricettario di aggiungerlo da Altro, sezione Famiglia.`) + out;
+  }
+  const owner = a.proprietario === u.uid;
+  return p(`Collegato come ${me}. Ricette, menu e spesa sono in comune con la famiglia.`) +
+    (owner ? `<div class="label">Chi può entrare</div>
+      <ul class="members">${(a.email || []).map(e => `<li><span class="grow">${esc(e)}</span>${e === a.proprietarioEmail ? `<span class="muted">tu</span>`
+        : `<button class="x" data-act="delMember" data-e="${esc(e)}" aria-label="Togli">${ic("x")}</button>`}</li>`).join("")}</ul>
+      <div class="row"><input id="memberEmail" type="email" placeholder="Email Google di un familiare" style="flex:1;width:auto">
+        <button data-act="addMember" aria-label="Aggiungi">${ic("plus")}</button></div>` : "") +
+    `<div class="row" style="margin-top:12px">${out}</div>`;
 }
 
 // ---------- Azioni ----------
@@ -796,7 +940,34 @@ const actions = {
     db.shop.push({ id: uid(), ...parseLine(v), done: false }); save(); render(false); $("shopAdd").focus();
   },
   export: exportData,
-  import: () => $("fileImport").click()
+  import: () => $("fileImport").click(),
+  login: async () => {
+    try { await cloud.A.signInWithPopup(cloud.auth, new cloud.A.GoogleAuthProvider()); }
+    catch (e) {
+      if (e.code === "auth/popup-blocked") toast("Il browser ha bloccato la finestra di accesso: consentila e riprova");
+      else if (!["auth/popup-closed-by-user", "auth/cancelled-popup-request"].includes(e.code)) toast("Accesso non riuscito: riprova");
+    }
+  },
+  logout: () => {
+    if (!confirm("Vuoi uscire? Le ricette restano su questo dispositivo, ma non si aggiornano più con la famiglia.")) return;
+    cloud.A.signOut(cloud.auth);
+  },
+  createFamily: async () => {
+    const u = cloud.user, F = cloud.F, e = u.email.toLowerCase();
+    try { await F.setDoc(F.doc(cloud.fs, "config", "accesso"), { proprietario: u.uid, proprietarioEmail: e, email: [e] }); toast("Ricettario di famiglia creato"); connect(); }
+    catch { toast("Non riesco a creare il ricettario di famiglia: riprova"); }
+  },
+  addMember: async () => {
+    const v = $("memberEmail").value.trim().toLowerCase(), list = cloud.access.email || [];
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) { toast("Scrivi un indirizzo email valido"); return; }
+    if (list.includes(v)) { toast("È già nella famiglia"); return; }
+    $("memberEmail").blur();
+    await setMembers([...list, v]); toast("Aggiunto: ora può entrare con questo account Google");
+  },
+  delMember: b => {
+    if (!confirm(`Togliere ${b.dataset.e} dalla famiglia?`)) return;
+    setMembers(cloud.access.email.filter(x => x !== b.dataset.e));
+  }
 };
 document.addEventListener("click", e => {
   const b = e.target.closest("[data-act]");
@@ -813,11 +984,13 @@ document.addEventListener("change", e => {
 });
 document.addEventListener("keydown", e => {
   if (e.key === "Enter" && e.target.id === "shopAdd") actions.shopAdd();
+  if (e.key === "Enter" && e.target.id === "memberEmail") actions.addMember();
 });
 
 history.replaceState({ view: "list" }, "");
 save();
 render(true);
+cloudInit();
 </script>
 </body>
 </html>
