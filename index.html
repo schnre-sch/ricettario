@@ -524,7 +524,7 @@ function fillResults() {
   const items = db.recipes
     .filter(r => state.cat === "Tutte" || (state.cat === "Preferite" ? r.fav : state.cat === "Più votate" ? r.stars > 0 : r.cat === state.cat))
     .filter(r => !q || norm([r.title, r.cat, r.notes, ...r.ing.map(i => i.name)].join(" ")).includes(q))
-    .sort((a, b) => (state.cat === "Più votate" ? (b.stars || 0) - (a.stars || 0) : 0) || a.title.localeCompare(b.title, "it"));
+    .sort((a, b) => (state.cat === "Più votate" ? (b.stars || 0) - (a.stars || 0) : 0) || catOrder(a.cat) - catOrder(b.cat) || a.title.localeCompare(b.title, "it"));
   $("results").innerHTML = items.length ? `<div class="grid">${items.map((r, n) => recipeCard(r, n)).join("")}</div>`
     : `<div class="empty">${ill("piatto")}${state.cat === "Più votate" && db.recipes.length ? "Nessuna ricetta votata.<br>Apri una ricetta e tocca le stelle." : db.recipes.length ? "Nessuna ricetta trovata." : "Ancora nessuna ricetta.<br>Tocca il pulsante + per aggiungere la prima."}</div>`;
 }
