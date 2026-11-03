@@ -138,6 +138,31 @@
   .members { list-style: none; margin: 8px 0 10px; padding: 0; }
   .members li { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .92rem; }
   .members .x { padding: 0; width: 32px; height: 32px; border: 0; background: transparent; color: var(--muted); }
+  .illus { color: var(--wood-light); display: block; }
+  .hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+  .deco { display: flex; gap: 6px; margin-bottom: 14px; }
+  .deco .illus { width: 34px; height: 34px; animation: float 5s ease-in-out infinite; }
+  .deco .illus:nth-child(2) { animation-delay: -1.2s; } .deco .illus:nth-child(3) { animation-delay: -2.4s; } .deco .illus:nth-child(4) { animation-delay: -3.6s; }
+  @keyframes float { 50% { transform: translateY(-3px) rotate(-4deg); } }
+  @media (max-width: 340px) { .deco .illus:nth-child(n+3) { display: none; } }
+  .card .wm { position: absolute; right: -8px; bottom: -10px; width: 70px; height: 70px; opacity: .22; transition: transform .3s; }
+  .card:hover .wm { transform: rotate(-8deg) scale(1.05); }
+  .card > div:not(.wm) { position: relative; padding-right: 44px; }
+  .detail-ill { width: 64px; height: 64px; flex-shrink: 0; opacity: .7; }
+  .empty .illus { width: 72px; height: 72px; margin: 0 auto 12px; }
+  .divider { display: flex; align-items: center; gap: 12px; color: var(--wood-light); margin: 26px 0 0; font-size: .78rem; letter-spacing: .14em; text-transform: uppercase; }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  .divider .illus { width: 26px; height: 26px; }
+  .stars { display: flex; gap: 2px; margin-top: 10px; align-items: center; }
+  .stars button { width: 36px; height: 36px; padding: 0; border: 0; background: transparent; color: var(--wood-light); }
+  .stars button .ic { width: 26px; height: 26px; }
+  .stars button.on { color: var(--wood); }
+  .stars button.pop .ic { animation: pop .35s ease-out; }
+  @keyframes pop { 40% { transform: scale(1.35); } }
+  .stars .muted { font-size: .85rem; margin-left: 6px; }
+  .mini-stars { color: var(--wood); display: inline-flex; gap: 1px; vertical-align: -2px; }
+  .mini-stars .ic { width: 13px; height: 13px; }
+  .mini-stars .ic:not(.fill) { color: var(--wood-light); }
   .mlist label { display: flex; gap: 10px; align-items: center; font-weight: 400; margin: 0; padding: 10px 2px; border-bottom: 1px solid var(--border); }
   .mlist input { width: 20px; height: 20px; accent-color: var(--wood); }
   .group { margin-top: 14px; }
@@ -171,6 +196,7 @@
 const ICONS = {
   back: '<path d="M15 18l-6-6 6-6"/>',
   star: '<path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/>',
+  heart: '<path d="M12 20s-7-4.4-9-9.1C1.7 7.6 3.9 4.5 7.2 4.5c2 0 3.5 1.1 4.8 2.8 1.3-1.7 2.8-2.8 4.8-2.8 3.3 0 5.5 3.1 4.2 6.4C19 15.6 12 20 12 20z"/>',
   edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
   book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/>',
   menu: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18"/>',
@@ -183,6 +209,18 @@ const ICONS = {
   chat: '<path d="M21 11.5a8.5 8.5 0 0 1-12.6 7.4L3 21l2.1-5.2A8.5 8.5 0 1 1 21 11.5z"/>',
   chevron: '<path d="M9 18l6-6-6-6"/>'
 };
+// Disegni decorativi a linee (stile legno)
+const ILLUS = {
+  padella: '<circle cx="24" cy="36" r="15"/><circle cx="24" cy="36" r="10"/><path d="M37 29l17-9a2.6 2.6 0 0 1 2.4 4.6L39 34"/>',
+  coltello: '<path d="M24 40L50 14c4 5 3 11-2 15L31 46z"/><path d="M24 40l-11 11a3 3 0 0 0 4.2 4.2L28 44"/><circle cx="17.5" cy="49.5" r=".6"/>',
+  piatto: '<circle cx="32" cy="32" r="15"/><circle cx="32" cy="32" r="9.5"/><path d="M7 12v9M10 12v9M13 12v9M7 21a3 3 0 0 0 6 0M10 24v26"/><path d="M57 12c-3 3-4 9-4 15h4v23"/>',
+  frusta: '<path d="M32 60V42"/><path d="M32 42c-8-6-10-21-5-31 2-4 8-4 10 0 5 10 3 25-5 31z"/><path d="M32 42c-3-9-3-22 0-32"/>',
+  pentola: '<path d="M14 28h36v20a6 6 0 0 1-6 6H20a6 6 0 0 1-6-6z"/><path d="M14 32H8M50 32h6M11 28h42"/><path d="M23 28c0-4 4-7 9-7s9 3 9 7M30 21v-3h4v3"/><path d="M24 14c-2-2 2-4 0-6M40 14c-2-2 2-4 0-6"/>',
+  tagliere: '<rect x="8" y="22" width="42" height="26" rx="5"/><path d="M50 31h5a3 3 0 0 1 0 6h-5"/><circle cx="21" cy="35" r="4.5"/><circle cx="33" cy="32" r="3"/><circle cx="37" cy="40" r="2.5"/>',
+  torta: '<path d="M10 54h44"/><path d="M15 54V36h34v18"/><path d="M15 44c4 3 8 3 11.3 0s8-3 11.3 0 8 3 11.4 0"/><path d="M32 36v-8"/><path d="M32 24c-2-2-1-5 0-7 1 2 2 5 0 7z"/>'
+};
+const ill = (n, cls = "") => `<svg class="illus ${cls}" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ILLUS[n]}</svg>`;
+const CAT_ILL = { Antipasti: "tagliere", Primi: "pentola", Secondi: "piatto", Dolci: "torta" };
 const ic = (n, cls = "") => `<svg class="ic ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
 
 // ---------- Dati di base ----------
@@ -302,7 +340,7 @@ function saveLocal() {
 function migrate(r) {
   return {
     id: r.id || uid(), title: r.title || "Senza nome", cat: r.cat || "Primi", time: r.time || "",
-    serv: parseInt(r.serv) || 4, fav: !!r.fav, notes: r.notes || "",
+    serv: parseInt(r.serv) || 4, fav: !!r.fav, stars: Math.min(5, parseInt(r.stars) || 0), notes: r.notes || "",
     ing: (r.ing || []).map(x => typeof x === "string" ? parseLine(x) : x),
     tools: r.tools || [], steps: r.steps || [], bimby: r.bimby || []
   };
@@ -470,11 +508,12 @@ const stepper = p => `<div class="stepper"><button data-act="pers" data-d="-1" a
 // ---------- Elenco ricette ----------
 function viewList() {
   const extra = [...new Set(db.recipes.map(r => r.cat).filter(c => c && !CATS.includes(c)))];
-  const chips = ["Tutte", "Preferite", ...CATS, ...extra];
+  const chips = ["Tutte", "Preferite", "Più votate", ...CATS, ...extra];
   if (!chips.includes(state.cat)) state.cat = "Tutte";
   return `
-    <h1>Ricettario</h1>
-    <p class="sub">${db.recipes.length} ricette${cloud.status === "member" ? " · in comune con la famiglia" : ""}</p>
+    <div class="hero"><div><h1>Ricettario</h1>
+      <p class="sub">${db.recipes.length} ricette${cloud.status === "member" ? " · in comune con la famiglia" : ""}</p></div>
+      <div class="deco">${["padella", "coltello", "piatto", "frusta"].map(n => ill(n)).join("")}</div></div>
     <div class="search">${ic("search")}<input type="search" id="search" data-in="search" placeholder="Cerca una ricetta o un ingrediente" value="${esc(state.q)}"></div>
     <div class="chips">${chips.map(c => `<button class="chip ${c === state.cat ? "on" : ""}" data-act="cat" data-c="${esc(c)}">${esc(c)}</button>`).join("")}</div>
     <div id="results"></div>
@@ -483,21 +522,23 @@ function viewList() {
 function fillResults() {
   const q = norm(state.q);
   const items = db.recipes
-    .filter(r => state.cat === "Tutte" || (state.cat === "Preferite" ? r.fav : r.cat === state.cat))
+    .filter(r => state.cat === "Tutte" || (state.cat === "Preferite" ? r.fav : state.cat === "Più votate" ? r.stars > 0 : r.cat === state.cat))
     .filter(r => !q || norm([r.title, r.cat, r.notes, ...r.ing.map(i => i.name)].join(" ")).includes(q))
-    .sort((a, b) => a.title.localeCompare(b.title, "it"));
+    .sort((a, b) => (state.cat === "Più votate" ? (b.stars || 0) - (a.stars || 0) : 0) || a.title.localeCompare(b.title, "it"));
   $("results").innerHTML = items.length ? `<div class="grid">${items.map((r, n) => recipeCard(r, n)).join("")}</div>`
-    : `<div class="empty">${db.recipes.length ? "Nessuna ricetta trovata." : "Ancora nessuna ricetta.<br>Tocca il pulsante + per aggiungere la prima."}</div>`;
+    : `<div class="empty">${ill("piatto")}${state.cat === "Più votate" && db.recipes.length ? "Nessuna ricetta votata.<br>Apri una ricetta e tocca le stelle." : db.recipes.length ? "Nessuna ricetta trovata." : "Ancora nessuna ricetta.<br>Tocca il pulsante + per aggiungere la prima."}</div>`;
 }
 function recipeCard(r, n = 0) {
   const k = perPerson(r);
   const meta = [r.time, r.serv + " persone", k ? k + " kcal a persona" : ""].filter(Boolean).map(esc).join(" · ");
   return `<div class="card" style="${catColor(r.cat)}; animation-delay:${Math.min(n, 10) * 25}ms" data-act="openRecipe" data-id="${r.id}">
     <div class="cat">${esc(r.cat)}</div>
-    <div class="t">${esc(r.title)}${r.fav ? ic("star", "fill") : ""}</div>
-    <div class="meta">${meta}</div>
+    <div class="t">${esc(r.title)}${r.fav ? ic("heart", "fill") : ""}</div>
+    <div class="meta">${r.stars ? miniStars(r.stars) + " · " : ""}${meta}</div>
+    ${ill(CAT_ILL[r.cat] || "padella", "wm")}
   </div>`;
 }
+const miniStars = n => `<span class="mini-stars" aria-label="${n} stelle su 5">${[1, 2, 3, 4, 5].map(i => ic("star", i <= n ? "fill" : "")).join("")}</span>`;
 
 // ---------- Scheda ricetta ----------
 function viewDetail() {
@@ -510,11 +551,15 @@ function viewDetail() {
   const bimby = r.bimby || [];
   return `
     <div class="topbar"><button class="iconbtn" data-act="back" aria-label="Indietro">${ic("back")}</button><span class="grow"></span>
-      <button class="iconbtn ${r.fav ? "on" : ""}" data-act="fav" aria-label="Preferita">${ic("star", r.fav ? "fill" : "")}</button>
+      <button class="iconbtn ${r.fav ? "on" : ""}" data-act="fav" aria-label="Preferita">${ic("heart", r.fav ? "fill" : "")}</button>
       <button class="iconbtn" data-act="editRecipe" aria-label="Modifica">${ic("edit")}</button></div>
-    <div class="label">${esc(r.cat)}</div>
-    <h2>${esc(r.title)}</h2>
-    <div class="meta">${[r.time, Math.round(total / p) + " kcal a persona"].filter(Boolean).map(esc).join(" · ")}</div>
+    <div class="hero" style="align-items:flex-start"><div>
+      <div class="label">${esc(r.cat)}</div>
+      <h2>${esc(r.title)}</h2>
+      <div class="meta">${[r.time, Math.round(total / p) + " kcal a persona"].filter(Boolean).map(esc).join(" · ")}</div></div>
+      ${ill(CAT_ILL[r.cat] || "padella", "detail-ill")}</div>
+    <div class="stars">${[1, 2, 3, 4, 5].map(n => `<button class="${n <= (r.stars || 0) ? "on" : ""}" data-act="rate" data-n="${n}" aria-label="Voto ${n} su 5">${ic("star", n <= (r.stars || 0) ? "fill" : "")}</button>`).join("")}
+      <span class="muted">${r.stars ? r.stars + " su 5" : "Tocca le stelle per dare un voto"}</span></div>
 
     <div class="panel row"><span class="grow"><b>Persone</b></span>${stepper(p)}</div>
 
@@ -543,7 +588,8 @@ function viewDetail() {
     </div>
 
     <div class="panel"><h3>Note e trucchi</h3>
-      <textarea data-in="note" placeholder="Scrivi qui i tuoi consigli: si salvano da soli.">${esc(r.notes)}</textarea></div>`;
+      <textarea data-in="note" placeholder="Scrivi qui i tuoi consigli: si salvano da soli.">${esc(r.notes)}</textarea></div>
+    <div class="divider">${ill("frusta")}<span>Buon appetito</span>${ill("coltello")}</div>`;
 }
 
 // ---------- Modifica ricetta ----------
@@ -617,7 +663,7 @@ function viewMenus() {
     ${db.menus.length ? `<div class="grid">${db.menus.map((m, n) => `<div class="card" style="--cc: var(--wood); animation-delay:${n * 25}ms" data-act="openMenu" data-id="${m.id}">
       <div class="cat">Menu</div><div class="t">${esc(m.name)}</div>
       <div class="meta">${m.items.filter(getR).length} piatti · ${m.serv} persone · ${Math.round(menuKcal(m, m.serv))} kcal a persona</div></div>`).join("")}</div>`
-      : `<div class="empty">Nessun menu ancora.<br>Tocca il pulsante + per crearne uno.</div>`}
+      : `<div class="empty">${ill("piatto")}Nessun menu ancora.<br>Tocca il pulsante + per crearne uno.</div>`}
     <button class="fab" data-act="newMenu" aria-label="Nuovo menu">${ic("plus")}</button>`;
 }
 function viewMenu() {
@@ -696,7 +742,7 @@ function viewShop() {
           <span class="t">${esc(x.name)}${x.from ? `<div class="meta">${esc(x.from)}</div>` : ""}</span><span class="qq">${x.qty == null ? "" : esc(fmtAmount(x))}</span></li>`).join("")}</ul></div>
       <div class="bar">${all ? "" : waButton()}<button data-act="clearDone">Togli i presi</button><button class="ghost" data-act="clearAll">Svuota</button></div>
       ${db.settings.phone ? "" : `<p class="muted" style="font-size:.88rem">Nessun numero impostato: WhatsApp ti farà scegliere il contatto. Puoi impostarlo in Altro.</p>`}`
-    : `<div class="empty">La lista è vuota.<br>Apri una ricetta o un menu e tocca "Aggiungi alla spesa".</div>`}
+    : `<div class="empty">${ill("tagliere")}La lista è vuota.<br>Apri una ricetta o un menu e tocca "Aggiungi alla spesa".</div>`}
     <div class="panel"><h3>Aggiungi a mano</h3><div class="row"><input id="shopAdd" placeholder="Es. 1 kg pane" style="flex:1;width:auto">
       <button data-act="shopAdd" aria-label="Aggiungi">${ic("plus")}</button></div></div>`;
 }
@@ -884,6 +930,12 @@ const actions = {
   editRecipe: () => go("edit", { rid: state.rid }),
   editBimby: () => go("edit", { rid: state.rid, focus: "bimby" }),
   fav: () => { const r = getR(state.rid); r.fav = !r.fav; save(); render(false); },
+  // Tocca la stessa stella di nuovo per togliere il voto
+  rate: b => {
+    const r = getR(state.rid), n = +b.dataset.n;
+    r.stars = r.stars === n ? 0 : n; save(); render(false);
+    document.querySelectorAll(".stars button").forEach((x, i) => i < r.stars && x.classList.add("pop"));
+  },
   pers: b => {
     const base = state.view === "menu" ? getM(state.mid).serv : getR(state.rid).serv;
     state.persons = Math.max(1, Math.min(50, (state.persons || base) + +b.dataset.d));
