@@ -504,8 +504,13 @@ function render(animate) {
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.v === tab));
   const left = db.shop.filter(x => !x.done).length;
   $("shopCount").textContent = left; $("shopCount").classList.toggle("hidden", !left);
-  if (state.view === "list") fillResults();
+  if (state.view === "list") { fillResults(); showChip(); }
   if (state.focus === "bimby" && $("bimbySection")) { state.focus = null; $("bimbySection").scrollIntoView({ behavior: "smooth" }); if (!$("bimbyRows").children.length) actions.addBimby(); }
+}
+// Fa vedere la sezione scelta anche quando la fila di sezioni è più larga dello schermo
+function showChip() {
+  const c = document.querySelector(".chips"), on = c && c.querySelector(".on");
+  if (on) c.scrollLeft = on.offsetLeft - c.offsetLeft - (c.clientWidth - on.offsetWidth) / 2;
 }
 function toast(msg) {
   const t = $("toast"); t.textContent = msg; t.classList.add("show");
@@ -519,7 +524,7 @@ const stepper = p => `<div class="stepper"><button data-act="pers" data-d="-1" a
 // ---------- Elenco ricette ----------
 function viewList() {
   const extra = [...new Set(db.recipes.map(r => r.cat).filter(c => c && !CATS.includes(c)))];
-  const chips = ["Tutte", "Preferite", "Più votate", ...CATS, ...extra];
+  const chips = [...CATS, ...extra, "Più votate", "Preferite", "Tutte"];
   if (!chips.includes(state.cat)) state.cat = "Tutte";
   return `
     <div class="hero"><div><h1>Ricettario</h1>
